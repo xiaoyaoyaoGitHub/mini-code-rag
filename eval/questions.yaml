@@ -1,0 +1,161 @@
+# 验收集：20 个问题，top-5 命中率目标 ≥ 80%
+#
+# 三类题型，缺一类就会掩盖一类问题：
+#   exact      精确定位（知道符号名）—— 考 symbols 精确命中那一路
+#   fuzzy      模糊描述（不知道名字，只知道干什么）—— 考 BM25 + 向量
+#   callgraph  跨文件调用（「被谁调用」）—— 考 calls 表，向量答不准这个
+#
+# 填写规则（重要）：
+#   - 只写你确切知道答案的题。宁可少几题，也不要编 expected，
+#     编出来的 expected 会让命中率好看但毫无意义。
+#   - expect_files 写路径片段即可（包含匹配，如 "service/user"）
+#   - expect_symbols 写符号名片段（如 "login"），大小写不敏感
+#   - files 和 symbols 是「或」关系，命中任一算命中
+#   - 两类都空 = 这题跳过（不进统计）
+#
+# 下面前 3 条是示例，跑起来前请全部换成你自己项目的真实问题。
+
+questions:
+  # ---- 示例 1：精确定位 ----
+  - id: 1
+    type: exact
+    question: "UserService.login 在哪个文件实现？"
+    expect_files: ["service/user_service.py"]
+    expect_symbols: ["UserService.login", "login"]
+    notes: "同名 login 散落多处时能测出目录过滤的价值"
+
+  # ---- 示例 2：模糊描述 ----
+  - id: 2
+    type: fuzzy
+    question: "登录时密码是怎么校验的？"
+    expect_files: ["service/auth", "utils/crypto"]
+    expect_symbols: ["verify_password", "check_password", "bcrypt"]
+    notes: "问题里不出现任何符号名，纯语义检索"
+
+  # ---- 示例 3：跨文件调用 ----
+  - id: 3
+    type: callgraph
+    question: "verify_password 被哪些地方调用了？"
+    expect_files: ["service/auth", "api/login"]
+    expect_symbols: ["verify_password"]
+    notes: "必须查 calls 表，向量检索基本答不对"
+
+  # ---- 下面 17 条照上面格式填，建议配比：exact 8 / fuzzy 8 / callgraph 4 ----
+  - id: 4
+    type: exact
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 5
+    type: exact
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 6
+    type: exact
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 7
+    type: exact
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 8
+    type: exact
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 9
+    type: exact
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 10
+    type: exact
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 11
+    type: exact
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 12
+    type: fuzzy
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 13
+    type: fuzzy
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 14
+    type: fuzzy
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 15
+    type: fuzzy
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 16
+    type: fuzzy
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 17
+    type: fuzzy
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 18
+    type: fuzzy
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 19
+    type: callgraph
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""
+
+  - id: 20
+    type: callgraph
+    question: "TODO"
+    expect_files: []
+    expect_symbols: []
+    notes: ""

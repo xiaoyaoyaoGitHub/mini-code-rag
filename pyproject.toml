@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "code-rag"
+version = "0.1.0"
+description = "单项目代码库 RAG：AST 切片 + 混合检索 + 增量更新"
+requires-python = ">=3.10"
+dependencies = [
+  "tree-sitter",
+  "tree-sitter-language-pack",
+  "sentence-transformers",
+  "sqlite-vec",
+  "pyyaml",
+  "typer",
+  "rich",
+  "langchain",
+  "langchain-core",
+  "langchain-community",
+  "langgraph",
+]
+
+[project.scripts]
+code-rag = "code_rag.cli:app"
+rag-mine = "rag_mine.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src","src-mine"]
+
+# 上手：
+#   python3 -m venv .venv && source .venv/bin/activate
+#   pip install -e .

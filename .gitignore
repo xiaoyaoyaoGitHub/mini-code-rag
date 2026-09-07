@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
+
+# 索引产物（可重建，不入库）
+data/index.db
+data/index.db-*
+data/chunks.jsonl
+
+stats.md
+eval/report.md
+.update.log
+tutorial/_out/
+
+# 参考实现不推送（只推自己写的 src-mine）
+src/
+
+# IDE / 构建产物 / AI 工具
+.idea/
+*.egg-info/
+.workbuddy-ai/
