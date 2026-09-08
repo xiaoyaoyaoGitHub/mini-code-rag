@@ -1,7 +1,10 @@
 from pathlib import Path
 import re
+import sys
+import builtins
 from .config import Config
 from .scan import iter_files
+import json
 
 LANG_SPECS: dict[str, dict] = {
     "python": {
@@ -126,13 +129,37 @@ def extract_imports(root, spec) -> list[str]:
                     out.append(name)
     return sorted(set(out))
 
-def extract_calls(root, spec):
+
+# 抽取 调用关系
+def extract_calls(root, spec)->list[str]:
+    names:set[str] = set()
     for node in _walk(root):
-        if _is_call_node(node, spec):
-            # TODO
-            pass
+        if _is_call_node(node,spec):
+            name = _call_name(node)
+            """
+                过滤内置函数
+                dir(builtins)
+                # ['ArithmeticError', 'AssertionError', ..., 'print', 'len', 'int', 'str',
+                #  'list', 'dict', 'Exception', 'ValueError', ...]  # 150+ 个
+            """
+            if name and name not in set(dir(builtins)):
+                names.add(name)
+    return sorted(names)
 
+# 获取调用关系的节点名称
+def _call_name(call_node):
+    func = call_node.child_by_field_name("function") or call_node.child_by_field_name("name")
+    if func is None:
+        return None
+    if func.type == 'identifier':
+        return func.text.decode('utf-8',errors="replace")
+    # 否则往子节点查找
+    for c in reversed(func.named_children):
+        if c.type == 'identifier':
+            return c.text.decode('utf-8',errors="replace")
+    return func.text.decode('utf-8',errors="replace")
 
+# 属于调用关系的 node
 def _is_call_node(node ,spec):
     if node.type in spec["call_types"]:
         return True
@@ -240,7 +267,27 @@ def make_chunk(node, spec, source, rel, chain, imports, project, cfg):
         "docstring":get_docstring(spec),
         "code":code,
         "imports":imports,
-        "calls":extract_calls(node, spec)
+        "calls":extract_calls(node, spec) if cfg.extract_calls else [],
+    }
+    return chunk
+
+def make_module_chunk(node, spec, source, rel, imports, project, cfg):
+    start_line = source[:node.start_byte].count(b"\n") + 1
+    chunk = {
+        "id": f"{project}:{rel}:{start_line}",
+        "project": project,
+        "file": rel,
+        "start_line": start_line,
+        "end_line": source[:node.end_byte].count(b"\n") + 1,
+        "language": cfg.ext_to_lang(Path(rel).suffix.lstrip('.')) or "unknow",
+        "kind": "module",
+        "name": Path(rel).stem,
+        "breadcrumb": rel,
+        "signature": '',
+        "docstring": get_docstring(spec),
+        "code": source.decode('utf-8',errors="replace"),
+        "imports": imports,
+        "calls": extract_calls(node, spec) if cfg.extract_calls else [],
     }
     return chunk
 
@@ -257,8 +304,9 @@ def chunk_file(path:Path, rel: str, language:str, name:str, cfg:Config):
     # 对节点进行遍历
     result = []
     for node, chain in walk_def_nodes(root, spec, units):
-        make_chunk(node, spec, source, rel, chain, imports, name, cfg)
-
+        result.append(make_chunk(node, spec, source, rel, chain, imports, name, cfg))
+    if not result and "module" in cfg.chunking.units:
+        result.append(make_module_chunk(root,spec, source, rel, imports, name, cfg))
     return result
 
 
@@ -268,6 +316,22 @@ def iter_chunks(cfg:Config):
     for file in iter_files(cfg):
         # print(f"file:{file.rel}, {file.language}")
         # 对文件内容进行切片转换
-        chunk_file(file.path, file.rel, file.language, cfg.project.name, cfg)
+        chunks = chunk_file(file.path, file.rel, file.language, cfg.project.name, cfg)
+        for chunk in chunks:
+            lines = chunk['end_line'] - chunk['start_line'] + 1
+            if lines > cfg.chunking.max_lines:
+                print(
+                    f"  [告警] {chunk['file']}:{chunk['start_line']} "
+                    f"{chunk['name']} {lines} 行超 max_lines，建议按嵌套函数再切",
+                    file=sys.stderr)
+            yield chunk
 
 
+def write_jsonl(chunks, cfg):
+    """ 写 chunks.jsonl """
+    root_path = cfg.root / 'data' / 'chunks.jsonl'
+    # print(f"root_path", root_path)
+    root_path.parent.mkdir(parents=True, exist_ok=True)
+    with root_path.open('w',encoding="utf-8") as f:
+        for chunk in chunks:
+            f.write(json.dumps(chunk,ensure_ascii=False) + "\n")

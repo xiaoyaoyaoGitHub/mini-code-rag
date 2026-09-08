@@ -61,7 +61,6 @@ chunking:
   max_lines: 150            # 超过则按嵌套函数再切一层，保住面包屑
   breadcrumb_sep: " › "
   embed_breadcrumb: true    # 面包屑拼进 embedding 输入 —— 所有优化里性价比最高的一项
-
 # 单项目场景「这函数被谁调用」是最高频问题之一，调用关系是确定性事实，
 # 靠向量答不准，必须在解析层抽出来存表。
 extract_calls: true

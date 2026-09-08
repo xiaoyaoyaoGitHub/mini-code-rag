@@ -4,7 +4,7 @@ from pathlib import Path
 from rich.console import Console
 from .config import load_config, Config
 from .scan import file_stats,render_stats
-from .parse import iter_chunks
+from .parse import iter_chunks,write_jsonl
 
 console = Console()
 
@@ -36,7 +36,15 @@ def stats(config:str = typer.Option("config.yaml", help="配置文件路径")):
 
 def run_chunk(config: str = 'config.yaml'):
     cfg = _cfg(config)
-    iter_chunks(cfg)
+    chunks = list(iter_chunks(cfg))
+    write_jsonl(chunks,cfg)
+    console.print(f"[green]✓[/] 切片完成")
+    console.print(f"  共 {len(chunks)} 个 chunk")
+    from collections import Counter
+    by_kinds = Counter([c['kind'] for c in chunks ])
+    for k, n in by_kinds.most_common(20):
+        print(f"{k:10s}: {n}")
+    return len(chunks)
 
 
 @app.command()
