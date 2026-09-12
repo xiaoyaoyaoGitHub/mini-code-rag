@@ -1,6 +1,6 @@
 from pathlib import Path
 import yaml
-from  dataclasses import dataclass
+from  dataclasses import dataclass, field
 
 # 自动成成类的样板方法 不用手写__init__/__repr__/__eq__
 @dataclass
@@ -36,6 +36,7 @@ class Store:
     backend: str
     path: str
     fts_tokenizer: str
+    path_jsonl: str
 
 @dataclass
 class Retrieval:
@@ -61,6 +62,8 @@ class Config:
     store: Store
     retrieval: Retrieval
     generation: Generation
+    # repr=False — 打印时不显示  compare=False — 比较时忽略
+    _source_path: Path = field(default = Path('config.yaml'), repr=False, compare=False)
 
     @property
     def root(self) -> Path:
@@ -69,6 +72,25 @@ class Config:
 
     def ext_to_lang(self, ext: str) -> str | None:
         return self.languages.get(ext, None)
+
+    @property
+    def chunks_path(self) -> Path :
+        return Path(self.root / self.store.path_jsonl).resolve()
+
+    # sql 数据路径
+    @property
+    def store_path(self) -> Path:
+        return Path(f"{self.project.root}/{self.store.path}" ).resolve()
+
+    # 更新 config.yaml 中的 dimension
+    def save_dimension(self,dim:int):
+        """ 首次运行探测到向量维度后回写 yaml """
+        self.embedding.dimension = dim
+        raw = yaml.safe_load(self._source_path.read_text(encoding="utf-8"))
+        raw.setdefault('embedding',{})["dimension"] = dim
+        self._source_path.write_text(
+            yaml.dump(raw, allow_unicode=True, sort_keys=False), encoding="utf-8"
+        )
 
 def load_config(path: str | Path = 'config.yaml'):
     # 加载配置文件
@@ -87,7 +109,8 @@ def load_config(path: str | Path = 'config.yaml'):
         embedding = Embedding(**raw.get("embedding",{})),
         store=Store(**raw.get("store", {})),
         retrieval = Retrieval(**raw.get("retrieval",{})),
-        generation = Generation(**raw.get("generation",{}))
+        generation = Generation(**raw.get("generation",{})),
+        _source_path=path
     )
 
     # 判断解析项目的地址是否存在

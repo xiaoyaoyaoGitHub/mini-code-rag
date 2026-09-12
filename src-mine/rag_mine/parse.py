@@ -329,9 +329,18 @@ def iter_chunks(cfg:Config):
 
 def write_jsonl(chunks, cfg):
     """ 写 chunks.jsonl """
-    root_path = cfg.root / 'data' / 'chunks.jsonl'
+    root_path = cfg.chunks_path
     # print(f"root_path", root_path)
     root_path.parent.mkdir(parents=True, exist_ok=True)
     with root_path.open('w',encoding="utf-8") as f:
         for chunk in chunks:
             f.write(json.dumps(chunk,ensure_ascii=False) + "\n")
+
+# 读 chunks.jsonl
+def read_jsonl(chunk_path:Path):
+    out = []
+    with chunk_path.open(encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                out.append(json.loads(line))
+    return out
