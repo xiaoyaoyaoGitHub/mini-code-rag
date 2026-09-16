@@ -2,7 +2,7 @@
 from .config import Config
 from .store import SqliteStore
 from .embed import get_embedder,APIEmbedder
-from .retrieve import rrf_fuse
+from .retrieve import rrf_fuse,is_strong,build_prompt,generate
 from typing import TypedDict
 from langgraph.graph import StateGraph, START, END
 
@@ -30,13 +30,14 @@ def _recall_depth(cfg:Config) -> int:
     return cfg.retrieval.top_k * 3
 
 
+
 def node_exact(state: RetrievalState):
     """ 精准召回 """
     cfg = state["cfg"]
     store = state['store']
     depth = _recall_depth(cfg)
     hits = store.search_exact(state["query"], limit=depth)
-    # print(f"exact_hits",hits)
+    # print(f"exact_hits",hits[0])
     return {"exact_hits": hits}
 
 def node_bm25(state: RetrievalState):
@@ -45,7 +46,7 @@ def node_bm25(state: RetrievalState):
     store = state["store"]
     depth = _recall_depth(cfg)
     hits = store.search_bm25(state["query"], limit=depth)
-    print(f"bm25_hits",len(hits))
+    # print(f"bm25_hits",hits[0])
     return {"bm25_hits":hits}
 
 def node_vector(state: RetrievalState):
@@ -57,6 +58,7 @@ def node_vector(state: RetrievalState):
     query_vec = embedder.embed([state['query']])[0]
     # print(f"node_vector",query_vec)
     hits = store.search_vector(query_vec, limit=depth)
+    # print(f"node_vector",hits[0])
     return {"vector_hits":hits}
 
 def node_fuse(state: RetrievalState):
@@ -67,20 +69,36 @@ def node_fuse(state: RetrievalState):
         "vector": state["vector_hits"]
     }
     fuse_result = rrf_fuse(ranking, state["cfg"].retrieval.rrf_k)
-    print(f"fuse_result",fuse_result)
-    return {"fused":fuse_result}
+    # print(f"fuse_result",fuse_result)
+    # 整合 chunk
+    by_id:dict[str, dict] = {}
+    for hits in ranking.values():
+        for h in hits:
+            by_id[h["id"]] = h
+
+    results = []
+    for chunk_id, score, ranks in fuse_result[:state['cfg'].retrieval.top_k]:
+        chunk = by_id[chunk_id]
+        results.append({"chunk":chunk, "score":score,"ranks":ranks})
+    return {"fused":fuse_result, "results": results}
 
 def node_filter(state: RetrievalState):
     """ 过滤弱结果 """
-    pass
+    results = [r for r in state["results"] if is_strong(r)]
+    return  {"results": results}
 
 def node_prompt(state: RetrievalState):
     """ 拼接提示词 """
-    pass
+    # print("state prompt", state)
+    if not state["results"]:
+        return {"prompt":""}
+    return {"prompt":build_prompt(state["query"],state["results"])}
 
 def node_generate(state: RetrievalState):
     """ 生成答案 """
-    pass
+    result = generate(state["prompt"], state["cfg"])
+    # print(f"result",result)
+    return {"answer":result}
 
 def build_graph():
     """
@@ -139,4 +157,11 @@ def ask_with_graph(query: str, cfg: Config):
         "answer":''
     }
 
-    graph.invoke(init_state)
+    final =  graph.invoke(init_state)
+
+    store.close()
+    return {
+        "answer":final["answer"],
+        "results":final["results"],
+        "prompt":final["prompt"]
+    }

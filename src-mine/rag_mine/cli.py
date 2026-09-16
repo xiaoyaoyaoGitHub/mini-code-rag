@@ -10,6 +10,7 @@ from .scan import file_stats,render_stats
 from .parse import iter_chunks,write_jsonl,read_jsonl
 from .embed import embedding_text,probe_dimension,get_embedder
 from .store import SqliteStore
+from .update import update_index
 
 console = Console()
 
@@ -114,7 +115,13 @@ def run_task(query:str, config:str = 'config.yaml'):
     """ 问答 检索 生成 """
     cfg = _cfg(config)
     from .graph import ask_with_graph
-    ask_with_graph(query, cfg)
+    result = ask_with_graph(query, cfg)
+    console.print()
+    console.print(f"[bold]问题：[/] {query}")
+    console.print()
+    console.print("[bold]答案：[/]")
+    console.print(result["answer"])
+    console.print()
 
 
 @app.command()
@@ -123,6 +130,37 @@ def ask(
 ):
     """ 阶段 3：问答 """
     run_task(query)
+
+
+def run_update(config: str = 'config.yaml'):
+    cfg = _cfg(config)
+    store = SqliteStore(cfg)
+    is_first = store.count("file_hash") == 0
+    store.close()
+
+    if is_first:
+        console.print("[yellow]ℹ[/] file_hash 表为空，这是全量重建，耗时可能较长")
+
+    t0 = time.time()
+    # 增量更新
+    report =  update_index(cfg)
+    elapsed = time.time() - t0
+
+    console.print(f"[green]✓[/] 增量更新完成，耗时 {elapsed:.1f}s")
+    console.print(f"  {report}")
+    if report.added:
+        console.print(f"  新增：{report.added}")
+    if report.changed:
+        console.print(f"  变更：{report.changed}")
+    if report.deleted:
+        console.print(f"  删除：{report.deleted}")
+
+
+
+@app.command()
+def update(config: str = typer.Option("config.yaml")):
+    """阶段 4: 增量更新 """
+    run_update(config)
 
 if __name__ == "__main__":
     app()

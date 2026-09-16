@@ -48,14 +48,17 @@ class APIEmbedder:
 
     async def embed_async(self, text: list[str]):
         client = self._client()
-        out:list[list[float]] = []
-        # 本模型不支持 input 传 list 类型 所以需要并发请求
-        result = await asyncio.gather(*[self._embed_batch(client, t) for t in text ])
-        # print("result",len(result),result[0])
-        out = [vec.embedding for r in result for vec in r ]
-        if self._dim is None:
-            self._dim = len(out[0])
-        return out
+        try:
+            out: list[list[float]] = []
+            # 本模型不支持 input 传 list 类型 所以需要并发请求
+            result = await asyncio.gather(*[self._embed_batch(client, t) for t in text])
+            # print("result",len(result),result[0])
+            out = [vec.embedding for r in result for vec in r]
+            if self._dim is None:
+                self._dim = len(out[0])
+            return out
+        finally:
+            await client.close()
 
     def embed(self,text:list[str]):
         return asyncio.run(self.embed_async(text))
@@ -82,8 +85,6 @@ def get_embedder(cfg: Config):
 def probe_dimension(embedder: Embedder):
     """ 获取 dimention """
     return embedder.dimension
-
-
 
 # 整合需要 embed的内容
 def embedding_text(chunk, cfg:Config) -> str:

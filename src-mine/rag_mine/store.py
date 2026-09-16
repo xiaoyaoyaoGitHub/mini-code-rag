@@ -1,5 +1,4 @@
 from .config import Config
-from pathlib import Path
 import sqlite3
 import json
 import re
@@ -157,6 +156,16 @@ class SqliteStore:
         self.conn.execute("DELETE FROM chunks_vecs WHERE chunk_id = ?", (cid,))
         self.conn.execute("DELETE FROM calls WHERE chunk_id = ?", (cid,))
 
+    # 删除
+    def delete_by_file(self,file):
+        raw = self.conn.execute("SELECT id FROM chunks WHERE file = ?",(file,)).fetchall()
+        # print('delete_by_file',dict(raw[0])["id"])
+        for r in raw:
+            cid = dict(r)["id"]
+            self._delete_chunk(cid)
+        self.conn.execute(f"DELETE FROM file_hash WHERE path = ?",(file,))
+        self.conn.commit()
+
     # 写入
     def upsert_chunks(self, chunks:list[dict], vectors:list[list[float]]):
         """ 把 chunk 写入到 5 张表中 """
@@ -264,3 +273,8 @@ class SqliteStore:
         """,(blob, limit)).fetchall()
 
         return [ dict(r) for r in rows ]
+
+    # 查询 hash表
+    def get_file_hashes(self):
+        """ 查询 hashes表数据 """
+        return dict(self.conn.execute("SELECT * FROM file_hash").fetchall())

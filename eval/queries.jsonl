@@ -1,0 +1,17 @@
+# 检索评测集。gold 填 chunk id（格式 my-project:文件:起始行）。
+# 标注方法：自己搜一遍，确认答案在哪个文件哪一行，把起始行抄进来。
+# 一个 query 可以有多个 gold（同义实现/多处定义），recall 分母就是 gold 个数。
+
+# ---- 符号名直接可查（exact 应命中）----
+{"query": "PublishController", "gold": ["my-project:server/src/controller/publish.ts:24"]}
+{"query": "MaterialService", "gold": ["my-project:server/src/service/material.ts:64"]}
+{"query": "handlePaySuccess", "gold": ["my-project:runtime/src/merchantBehavior/index.ts:22"]}
+
+# ---- 功能描述（考 bm25 + 向量，中文 2-gram）----
+{"query": "发布活动保存信息的接口", "gold": ["my-project:server/src/controller/publish.ts:28"]}
+{"query": "批量删除素材", "gold": ["my-project:server/src/controller/material.ts:92"]}
+{"query": "统计页面数量的方法", "gold": ["my-project:server/src/service/page.ts:154"]}
+{"query": "支付成功后的处理逻辑", "gold": ["my-project:runtime/src/merchantBehavior/index.ts:22"]}
+{"query": "获取支付链接", "gold": ["my-project:runtime/src/merchantBehavior/index.ts:16"]}
+{"query": "复制产品的实现", "gold": ["my-project:server/src/controller/product.ts:68"]}
+{"query": "页面更新代码", "gold": ["my-project:server/src/service/page.ts:171"]}
