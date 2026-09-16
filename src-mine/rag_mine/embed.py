@@ -1,10 +1,8 @@
 import os
 import asyncio
-from http.client import responses
 
 from dotenv import load_dotenv
 load_dotenv()
-from sympy.physics.vector.printing import params
 
 from .config import Config
 from typing import Protocol
@@ -56,7 +54,7 @@ class APIEmbedder:
         # print("result",len(result),result[0])
         out = [vec.embedding for r in result for vec in r ]
         if self._dim is None:
-            self._dim = out[0]
+            self._dim = len(out[0])
         return out
 
     def embed(self,text:list[str]):
@@ -92,7 +90,8 @@ def embedding_text(chunk, cfg:Config) -> str:
     parts = []
     if cfg.chunking.embed_breadcrumb:
         parts.append(f"# {chunk['breadcrumb']}")
-    parts.append(chunk["signature"])
+    if chunk["signature"] and chunk["signature"] not in chunk["code"]:
+        parts.append(chunk["signature"])
     if chunk["docstring"]:
         parts.append(chunk["docstring"])
     parts.append(chunk["code"])

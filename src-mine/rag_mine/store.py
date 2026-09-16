@@ -214,3 +214,53 @@ class SqliteStore:
                 self.conn.execute("INSERT OR REPLACE INTO file_hash(path, sha) VALUES (?,?)",(chunk['file'], hashlib.sha256(rel_path.read_bytes()).hexdigest()))
 
             self.conn.commit()
+
+    def search_exact(self, query:str, limit:int = 10) -> list[dict]:
+        """ 精准查询 """
+        norm = norm_symbol(query)
+        if not norm:
+            return []
+        if len(norm) > 4:
+            # 字符串长的做包含匹配
+            rows = self.conn.execute("""
+                SELECT c.*, 1.0 AS score 
+                FROM chunks c JOIN symbols s ON s.chunk_id = c.id
+                WHERE s.norm = ? OR s.norm LIKE '%' || ? || '%'
+                LIMIT ?
+            """,(norm, norm, limit)).fetchall()
+        else:
+            # 字符串短的做精准匹配
+            rows = self.conn.execute("""
+                SELECT c.*, 1.0 AS score 
+                FROM chunks c  JOIN symbols s ON s.chunk_id = c.id
+                WHERE s.norm = ? LIMIT ?                    
+            """,(norm, limit))
+        return [dict(r) for r in rows]
+
+    # 语义查询
+    def search_bm25(self,query: str, limit:int = 10)-> list[dict]:
+        """ 关键字召回  """
+        match = " OR ".join(f'"{t}"' for t in expand_cjk(query).split() if t )
+        if not match:
+            return []
+        # bm25 返回负数，越小越相关
+        rows = self.conn.execute("""
+            SELECT c.*, bm25(chunks_fts) AS raw 
+            FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.chunk_id
+            WHERE chunks_fts MATCH ? ORDER BY raw LIMIT ?
+        """,(match, limit)).fetchall()
+
+        return [{ k:r[k] for k in r.keys() } for r in rows ]
+
+    def search_vector(self, vec, limit):
+        """ 向量检索 """
+        import sqlite_vec
+        blob = sqlite_vec.serialize_float32(vec)
+        rows = self.conn.execute("""
+            SELECT v.chunk_id, v.distance, c.* 
+            FROM chunks_vecs v JOIN chunks c ON c.id = v.chunk_id
+            WHERE v.embedding MATCH ? AND k = ?
+            ORDER BY v.distance
+        """,(blob, limit)).fetchall()
+
+        return [ dict(r) for r in rows ]

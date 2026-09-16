@@ -3,11 +3,16 @@ __pycache__/
 .venv/
 venv/
 .DS_Store
+.env
 
 # 索引产物（可重建，不入库）
 data/index.db
 data/index.db-*
 data/chunks.jsonl
+
+# SQLite 临时文件
+*.db-journal
+_sqlite_probe_tmp.db*
 
 stats.md
 eval/report.md

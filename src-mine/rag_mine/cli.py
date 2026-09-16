@@ -109,5 +109,20 @@ def index(config: str = typer.Option("config.yaml")):
     """ 阶段 2：创建索引 """
     run_index()
 
+
+def run_task(query:str, config:str = 'config.yaml'):
+    """ 问答 检索 生成 """
+    cfg = _cfg(config)
+    from .graph import ask_with_graph
+    ask_with_graph(query, cfg)
+
+
+@app.command()
+def ask(
+        query: str = typer.Argument(..., help="问题"),
+):
+    """ 阶段 3：问答 """
+    run_task(query)
+
 if __name__ == "__main__":
     app()

@@ -17,6 +17,7 @@ LANG_SPECS: dict[str, dict] = {
         "def_types": {
             "function_declaration", "class_declaration",
             "method_definition", "function_expression",
+            "public_field_definition"
         },
         "call_types": {"call_expression"},
         "import_types": {"import_statement"},
@@ -26,6 +27,7 @@ LANG_SPECS: dict[str, dict] = {
         "def_types": {
             "function_declaration", "class_declaration",
             "method_definition", "function_expression",
+            "public_field_definition"
         },
         "call_types": {"call_expression"},
         "import_types": {"import_statement"},
@@ -167,7 +169,13 @@ def _is_call_node(node ,spec):
 # 判断是否为对应语言的def_types
 def _is_def_node(node, spec):
     if node.type in spec["def_types"]:
-        return True
+        # 增加箭头函数的判断
+        if node.type == 'public_field_definition':
+            for child in node.named_children:
+                if child.type == 'arrow_function':
+                    return True
+        else:
+            return True
     return False
 
 # 获取节点名称
@@ -200,11 +208,19 @@ def _class_header_end(node):
         return node.end_byte
 
     end = body.start_byte # 默认是 body的开头
-    for child in node.named_children:
-        if child.type in ("string", "assignment", "annotated_assignment", "field_declaration"):
+    for child in body.named_children:
+        if child.type == 'comment':
             end = child.end_byte
             continue
-        break
+        if child.type == 'public_field_definition':
+            has_arrow = any( c.type == "arrow_function" for c in child.named_children )
+            if has_arrow:
+                break
+            end = child.end_byte
+            continue
+        if child.type in ('string','assignment', 'annotated_assignment'):
+            end = child.end_byte
+            continue
     return end
 
 # 类型 简化版的判断 闭包方法会误判为 method 影响不大
@@ -228,10 +244,16 @@ def get_signature(node, source):
     first_line = source[node.start_byte:].split(b"\n",1)[0]
     return first_line.decode("utf-8", errors="replace").strip()
 
-def get_docstring(spec):
-    if spec['docstring_is_string']:
-        # TODO python语法解析需要
-        pass
+def get_docstring(spec, node, source):
+    """ TS / JS 与 python不同 注释是在函数外层 """
+    parent = node.parent
+    if parent:
+        siblings = [ c for c in parent.named_children ]
+        idx = siblings.index(node)
+        if idx > 0:
+            prev = siblings[idx-1]
+            if prev.type == 'comment':
+                return prev.text.decode("utf-8", errors="replace")
     return ''
 
 
@@ -264,7 +286,7 @@ def make_chunk(node, spec, source, rel, chain, imports, project, cfg):
         "name":name,
         "breadcrumb":breadcrumb,
         "signature": get_signature(node, source),
-        "docstring":get_docstring(spec),
+        "docstring":get_docstring(spec, node, source),
         "code":code,
         "imports":imports,
         "calls":extract_calls(node, spec) if cfg.extract_calls else [],
@@ -284,7 +306,7 @@ def make_module_chunk(node, spec, source, rel, imports, project, cfg):
         "name": Path(rel).stem,
         "breadcrumb": rel,
         "signature": '',
-        "docstring": get_docstring(spec),
+        "docstring": get_docstring(spec, node, source),
         "code": source.decode('utf-8',errors="replace"),
         "imports": imports,
         "calls": extract_calls(node, spec) if cfg.extract_calls else [],
